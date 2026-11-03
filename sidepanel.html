@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>h2dev_flow</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header class="head">
+      <div class="brand">
+        <span class="logo">⚡</span>
+        <div>
+          <h1>h2dev<span class="accent">_flow</span></h1>
+          <span class="ver">Bulk Image cho Google Flow · v1.0</span>
+        </div>
+      </div>
+    </header>
+
+    <div id="conn" class="conn conn--off">
+      <span class="dot"></span>
+      <span id="connText">Đang kiểm tra kết nối…</span>
+    </div>
+
+    <section class="block">
+      <label class="lbl" for="prompts">Danh sách prompt</label>
+      <p class="hint">Mỗi dòng là một prompt. Dán bao nhiêu dòng cũng được.</p>
+      <textarea
+        id="prompts"
+        rows="6"
+        placeholder="A red bicycle on a rainy street&#10;A watercolor fox in a forest&#10;..."
+      ></textarea>
+      <div class="row">
+        <button id="loadTxt" class="btn btn--ghost">📄 Tải file .txt</button>
+        <input id="txtFile" type="file" accept=".txt" hidden />
+        <span id="count" class="count">0 prompt</span>
+      </div>
+    </section>
+
+    <section class="block grid2">
+      <div>
+        <label class="lbl" for="folder">Thư mục con (trong Downloads)</label>
+        <input id="folder" type="text" value="h2dev_flow" />
+      </div>
+      <div class="serial">
+        <label class="lbl">Đánh số</label>
+        <label class="switch">
+          <input id="serial" type="checkbox" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <p class="hint folder-note">
+      Ảnh lưu vào <b>Downloads / [tên trên]</b>. Chrome không cho chọn ổ đĩa khác.
+    </p>
+
+    <section class="block">
+      <label class="lbl">Nghỉ ngẫu nhiên giữa các ảnh (giây)</label>
+      <div class="row delays">
+        <input id="delayMin" type="number" min="0" value="5" />
+        <span>đến</span>
+        <input id="delayMax" type="number" min="0" value="15" />
+      </div>
+      <p class="hint">Giúp tránh bị Google coi là bot. Để 0–0 nếu muốn chạy liền.</p>
+    </section>
+
+    <div class="actions">
+      <button id="start" class="btn btn--primary"><span>Bắt đầu</span></button>
+      <button id="stop" class="btn btn--danger" disabled>Dừng</button>
+    </div>
+
+    <div id="tip" class="tip">
+      💡 Trước khi chạy: <b>đóng DevTools (F12)</b> trên tab Flow, và <b>để yên thanh vàng</b> "đang gỡ lỗi" khi nó hiện.
+    </div>
+
+    <section class="block">
+      <div class="qhead">
+        <span class="lbl">Hàng đợi</span>
+        <span id="progress" class="count">—</span>
+      </div>
+      <div class="pbar"><div id="pfill" class="pfill"></div></div>
+      <ul id="queue" class="queue"></ul>
+    </section>
+
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
