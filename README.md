@@ -1,13 +1,13 @@
-# h2dev_flow — Bulk Image cho Google Flow
+# vanh_flow — Bulk Image cho Google Flow
 
 > **CÁCH HOẠT ĐỘNG (bản chính thức):** Tool dùng **chrome.debugger** để gõ chữ thật vào ô prompt của Flow (ô Slate.js chỉ nhận input thật). Vì vậy:
+>
 > 1. **Phải ĐÓNG DevTools (F12)** trên tab Flow khi chạy — DevTools chiếm mất kênh debugger.
 > 2. Khi chạy, Chrome hiện thanh vàng **"h2dev_flow đang gỡ lỗi trình duyệt này"** — **để yên, đừng bấm Hủy**.
 >
 > Quy trình: dán prompt (mỗi dòng 1 cái) → Bắt đầu → tool tự gõ + Enter + chờ ảnh xong → tự tải về `Downloads/[thư mục]/` → prompt tiếp theo.
 
 ---
-
 
 Extension Chrome (mã nguồn mở, miễn phí) giúp nạp hàng loạt prompt và **tự động sinh ảnh trên Google Flow**, rồi tự tải về máy. Đây là bản khung để bạn dùng và phát cho cộng đồng.
 
@@ -32,7 +32,7 @@ Extension Chrome (mã nguồn mở, miễn phí) giúp nạp hàng loạt prompt
 1. Mở một project trên **Google Flow** (`labs.google/fx/tools/flow`).
 2. Bấm icon ⚡ để mở **side panel** bên phải.
 3. Đợi dòng trạng thái hiện **"Đã kết nối với Google Flow"** (xanh).
-4. Dán prompt vào ô — **mỗi dòng một prompt** (hoặc bấm *Tải file .txt*).
+4. Dán prompt vào ô — **mỗi dòng một prompt** (hoặc bấm _Tải file .txt_).
 5. Chọn thư mục lưu, bật/tắt đánh số, đặt thời gian nghỉ ngẫu nhiên.
 6. Bấm **Bắt đầu**. Tool sẽ chạy lần lượt: gõ prompt → bấm tạo → đợi xong → tải ảnh → nghỉ → prompt tiếp theo.
 7. Muốn ngừng giữa chừng thì bấm **Dừng**.
@@ -58,6 +58,7 @@ Vì tool bám vào giao diện Flow, khi Google cập nhật thì 2 thứ hay h�
 6. Lưu file, vào `chrome://extensions` bấm tải lại extension.
 
 Các tham số khác trong khối `CONFIG` ở đầu `content.js` bạn cũng có thể chỉnh:
+
 - `submitWithEnter`: nếu Flow gửi bằng phím Enter thay vì nút bấm → đổi `true`.
 - `maxWaitMs`: thời gian chờ tối đa cho mỗi ảnh (mặc định 4 phút).
 - `minImageSize`: ngưỡng pixel để phân biệt ảnh kết quả với icon nhỏ.
@@ -69,7 +70,7 @@ Các tham số khác trong khối `CONFIG` ở đầu `content.js` bạn cũng c
 ## 4. Giới hạn đã biết (bản v1)
 
 - **Ảnh blob:** Phần lớn ảnh Flow là link `https` tải thẳng được. Nếu ảnh ở dạng `blob:` mà bị chặn CORS, tải có thể lỗi — khi đó cần xử lý thêm.
-- **Cách canh "xong":** Tool coi là xong khi có *ảnh mới xuất hiện*. Nếu bạn để sẵn nhiều ảnh cũ giống hệt, hoặc Flow load chậm, có thể nhầm. Tăng `settleMs`/`maxWaitMs` nếu cần.
+- **Cách canh "xong":** Tool coi là xong khi có _ảnh mới xuất hiện_. Nếu bạn để sẵn nhiều ảnh cũ giống hệt, hoặc Flow load chậm, có thể nhầm. Tăng `settleMs`/`maxWaitMs` nếu cần.
 - Chỉ chạy khi **một** tab Flow đang mở. Mở nhiều tab Flow thì nó lấy tab đầu tiên.
 
 ---
@@ -93,7 +94,7 @@ Các tham số khác trong khối `CONFIG` ở đầu `content.js` bạn cũng c
 ## Cấu trúc file
 
 ```
-h2dev_flow/
+vanh_flow/
 ├── manifest.json      # khai báo extension
 ├── background.js      # mở side panel khi bấm icon
 ├── content.js         # CON BOT: điều khiển trang Flow  ← sửa ở đây khi hỏng
