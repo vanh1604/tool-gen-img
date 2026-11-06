@@ -24,7 +24,10 @@
 
     <section class="block">
       <label class="lbl" for="prompts">Danh sách prompt</label>
-      <p class="hint">Mỗi dòng là một prompt. Dán bao nhiêu dòng cũng được.</p>
+      <p class="hint">
+        Mỗi dòng là một prompt. Nếu prompt bắt đầu bằng mốc <b>[00:12-00:20]</b>:
+        ảnh lưu tên <b>00-12_00-20.png</b>, còn dòng <b>REUSE IMAGE</b> tự bỏ qua.
+      </p>
       <textarea
         id="prompts"
         rows="6"
@@ -35,6 +38,7 @@
         <input id="txtFile" type="file" accept=".txt" hidden />
         <span id="count" class="count">0 prompt</span>
       </div>
+      <p id="parseWarn" class="hint warn" hidden></p>
     </section>
 
     <section class="block grid2">

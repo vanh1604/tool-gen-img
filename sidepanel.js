@@ -21,10 +21,12 @@ const els = {
   pfill: $("pfill"),
   conn: $("conn"),
   connText: $("connText"),
+  parseWarn: $("parseWarn"),
 };
 
 let running = false;
-let items = []; // [{prompt, status}]
+// [{kind: "gen"|"reuse", prompt, status, range?, stem?, from?, fromStem?}]
+let items = [];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -48,15 +50,101 @@ async function loadSettings() {
   refreshCount();
 }
 
-// ---------- Đếm prompt ----------
-function parsePrompts() {
-  return els.prompts.value
-    .split("\n")
-    .map((s) => s.trim())
-    .filter(Boolean);
+// ---------- Phân tích danh sách prompt ----------
+// Hai định dạng:
+//  1) Có mốc thời gian: mỗi prompt bắt đầu bằng "[mm:ss-mm:ss]" (có thể kéo
+//     dài nhiều dòng tới mốc kế tiếp). Mốc được bóc ra khỏi prompt và dùng
+//     làm tên file "mm-ss_mm-ss.png". Dòng "REUSE IMAGE [..]" bị bỏ qua (chỉ
+//     dành cho bước dựng) — không gửi sang Flow.
+//  2) Không có mốc: mỗi dòng là một prompt (như cũ).
+const TS = String.raw`\d{1,2}:\d{2}(?::\d{2})?`;
+const HEAD_RE = new RegExp(String.raw`^\[\s*(${TS})\s*-\s*(${TS})\s*\]\s*(.*)$`);
+const REUSE_RE = new RegExp(String.raw`^REUSE(?:\s+IMAGE)?\b.*?\[\s*(${TS})\s*-\s*(${TS})\s*\]\s*\.?\s*(.*)$`, "i");
+
+const rangeKey = (a, b) => `${a}-${b}`;
+// "00:12" + "00:20" -> "00-12_00-20" (Windows không cho dấu hai chấm)
+const rangeStem = (a, b) => `${a.replace(/:/g, "-")}_${b.replace(/:/g, "-")}`;
+
+function parseInput(text) {
+  const lines = text.split(/\r?\n/);
+  const warnings = [];
+
+  // --- Định dạng cũ: mỗi dòng một prompt ---
+  if (!lines.some((l) => HEAD_RE.test(l.trim()))) {
+    const list = lines.map((s) => s.trim()).filter(Boolean);
+    return {
+      items: list.map((p) => ({ kind: "gen", prompt: p, status: "pending" })),
+      warnings,
+    };
+  }
+
+  // --- Định dạng có mốc thời gian: gom theo khối ---
+  const blocks = [];
+  let cur = null;
+  let preamble = 0;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(HEAD_RE);
+    if (m) {
+      cur = { start: m[1], end: m[2], body: m[3] ? [m[3]] : [] };
+      blocks.push(cur);
+    } else if (cur) {
+      cur.body.push(line); // prompt nhiều dòng -> nối lại bằng dấu cách
+    } else {
+      preamble++; // chữ trước mốc đầu tiên (ghi chú, tiêu đề) -> bỏ qua
+    }
+  }
+  if (preamble) warnings.push(`Bỏ qua ${preamble} dòng trước mốc thời gian đầu tiên.`);
+
+  const items = [];
+  const seen = new Set();
+  for (const b of blocks) {
+    const key = rangeKey(b.start, b.end);
+    const prompt = b.body.join(" ").replace(/\s+/g, " ").trim();
+    if (seen.has(key)) warnings.push(`Mốc [${key}] bị lặp — file sẽ bị đặt tên trùng.`);
+    seen.add(key);
+
+    const r = prompt.match(REUSE_RE);
+    if (r) {
+      items.push({
+        kind: "reuse", range: key, stem: rangeStem(b.start, b.end),
+        from: rangeKey(r[1], r[2]), fromStem: rangeStem(r[1], r[2]),
+        prompt, status: "reuse",
+      });
+    } else if (!prompt) {
+      warnings.push(`Mốc [${key}] không có nội dung prompt — bỏ qua.`);
+    } else {
+      items.push({
+        kind: "gen", range: key, stem: rangeStem(b.start, b.end),
+        prompt, status: "pending",
+      });
+    }
+  }
+
+  // kiểm tra ảnh được dùng lại có thực sự được tạo không
+  const genKeys = new Set(items.filter((i) => i.kind === "gen").map((i) => i.range));
+  for (const it of items) {
+    if (it.kind === "reuse" && !genKeys.has(it.from)) {
+      warnings.push(`[${it.range}] dùng lại [${it.from}] nhưng mốc đó không có prompt tạo ảnh.`);
+    }
+  }
+  return { items, warnings };
 }
+
 function refreshCount() {
-  els.count.textContent = `${parsePrompts().length} prompt`;
+  const { items: list, warnings } = parseInput(els.prompts.value);
+  const gen = list.filter((i) => i.kind === "gen").length;
+  const reuse = list.length - gen;
+  els.count.textContent =
+    `${gen} prompt` + (reuse ? ` · ${reuse} dùng lại (bỏ qua)` : "");
+  els.parseWarn.textContent = warnings.join(" ");
+  els.parseWarn.hidden = warnings.length === 0;
+  // xem trước hàng đợi (không đụng vào khi đang chạy)
+  if (!running) {
+    items = list;
+    renderQueue();
+  }
 }
 
 // ---------- Tìm tab Google Flow ----------
@@ -135,20 +223,26 @@ function renderQueue() {
   items.forEach((it, i) => {
     const li = document.createElement("li");
     li.className = "qitem " + it.status;
+    const range = it.range ? `<span class="range">${escapeHtml(it.range)}</span>` : "";
+    const txt = it.kind === "reuse"
+      ? `↺ dùng lại ảnh ${escapeHtml(it.fromStem)}.png`
+      : escapeHtml(it.prompt);
     li.innerHTML = `
       <span class="num">${i + 1}</span>
-      <span class="txt">${escapeHtml(it.prompt)}</span>
+      ${range}
+      <span class="txt" title="${escapeHtml(it.prompt)}">${txt}</span>
       <span class="tag ${it.status}">${statusLabel(it.status)}</span>`;
     els.queue.appendChild(li);
   });
-  const done = items.filter((i) => i.status === "done").length;
-  const finished = items.filter((i) =>
+  const gen = items.filter((i) => i.kind === "gen");
+  const done = gen.filter((i) => i.status === "done").length;
+  const finished = gen.filter((i) =>
     ["done", "error", "timeout"].includes(i.status)
   ).length;
-  els.progress.textContent = items.length ? `${done}/${items.length} xong` : "—";
+  els.progress.textContent = gen.length ? `${done}/${gen.length} xong` : "—";
   if (els.pfill) {
-    els.pfill.style.width = items.length
-      ? Math.round((finished / items.length) * 100) + "%"
+    els.pfill.style.width = gen.length
+      ? Math.round((finished / gen.length) * 100) + "%"
       : "0%";
   }
 }
@@ -159,6 +253,7 @@ function statusLabel(s) {
     done: "Xong",
     error: "Lỗi",
     timeout: "Quá giờ",
+    reuse: "Bỏ qua",
   }[s] || s;
 }
 function escapeHtml(s) {
@@ -175,15 +270,17 @@ function safeName(s) {
     .slice(0, 50)
     .replace(/-+$/, "");
 }
-function buildFilename(serial, prompt) {
+function buildFilename(serial, item) {
   const folder = safeName(els.folder.value || "h2dev_flow") || "h2dev_flow";
-  const snippet = safeName(prompt) || "image";
+  // có mốc thời gian -> tên file đúng bằng mốc (00-12_00-20.png), không đánh số
+  if (item.stem) return `${folder}/${item.stem}.png`;
+  const snippet = safeName(item.prompt) || "image";
   const num = els.serial.checked ? String(serial).padStart(3, "0") + "_" : "";
   return `${folder}/${num}${snippet}.png`;
 }
 
 // ---------- Tải ảnh ----------
-async function downloadImage(src, serial, prompt, tabId) {
+async function downloadImage(src, serial, item, tabId) {
   let url = src;
   // blob: thì nhờ content script đổi sang dataURL
   if (!/^https?:/i.test(src)) {
@@ -193,7 +290,7 @@ async function downloadImage(src, serial, prompt, tabId) {
   }
   await chrome.downloads.download({
     url,
-    filename: buildFilename(serial, prompt),
+    filename: buildFilename(serial, item),
     conflictAction: "uniquify",
     saveAs: false,
   });
@@ -211,20 +308,24 @@ async function run() {
   const tab = await checkConnection();
   if (!tab) return;
 
-  const list = parsePrompts();
-  if (list.length === 0) {
+  const parsed = parseInput(els.prompts.value).items;
+  if (!parsed.some((it) => it.kind === "gen")) {
     setConn(false, "Chưa có prompt nào");
     return;
   }
 
-  items = list.map((p) => ({ prompt: p, status: "pending" }));
+  items = parsed;
   renderQueue();
 
   running = true;
   els.start.disabled = true;
   els.stop.disabled = false;
 
-  for (let i = 0; i < items.length; i++) {
+  // chỉ số các prompt thật sự cần tạo ảnh (REUSE bị bỏ qua)
+  const genIdx = items.map((it, i) => (it.kind === "gen" ? i : -1)).filter((i) => i >= 0);
+
+  for (let g = 0; g < genIdx.length; g++) {
+    const i = genIdx[g];
     if (!running) break;
 
     items[i].status = "generating";
@@ -268,7 +369,7 @@ async function run() {
 
     if (resp && resp.ok && resp.src) {
       try {
-        await downloadImage(resp.src, i + 1, items[i].prompt, tab.id);
+        await downloadImage(resp.src, g + 1, items[i], tab.id);
         items[i].status = "done";
       } catch (e) {
         console.warn("Download lỗi:", e);
@@ -282,7 +383,7 @@ async function run() {
     renderQueue();
 
     // nghỉ ngẫu nhiên trước prompt kế (trừ prompt cuối)
-    if (i < items.length - 1 && running) {
+    if (g < genIdx.length - 1 && running) {
       await sleep(randDelay());
     }
   }
